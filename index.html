@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>塔罗抽牌 · Tarot Draw</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --gold: #d9b06a;
+    --gold-soft: #f4e3bb;
+    --text: #ece4fb;
+    --muted: rgba(236, 228, 251, .62);
+    --card-w: 168px;
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 34px 18px 44px;
+    color: var(--text);
+    font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", Georgia, "Times New Roman", serif;
+    background-color: #08050f;
+    background-image:
+      radial-gradient(ellipse 70% 55% at 15% 0%, rgba(104, 66, 196, .38), transparent 70%),
+      radial-gradient(ellipse 60% 45% at 88% 4%, rgba(44, 104, 190, .30), transparent 70%),
+      radial-gradient(ellipse 80% 50% at 50% 108%, rgba(176, 118, 58, .20), transparent 70%),
+      linear-gradient(180deg, #0a0716 0%, #120b24 48%, #07040e 100%);
+    background-attachment: fixed;
+  }
+
+  /* 星空 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 8% 14%, rgba(255, 255, 255, .90), transparent 100%),
+      radial-gradient(1.2px 1.2px at 22% 6%, rgba(255, 255, 255, .65), transparent 100%),
+      radial-gradient(1.6px 1.6px at 37% 22%, rgba(255, 240, 200, .75), transparent 100%),
+      radial-gradient(1.1px 1.1px at 52% 9%, rgba(255, 255, 255, .60), transparent 100%),
+      radial-gradient(1.4px 1.4px at 68% 18%, rgba(255, 255, 255, .80), transparent 100%),
+      radial-gradient(1.2px 1.2px at 83% 7%, rgba(255, 235, 190, .70), transparent 100%),
+      radial-gradient(1.6px 1.6px at 94% 26%, rgba(255, 255, 255, .70), transparent 100%),
+      radial-gradient(1.3px 1.3px at 14% 44%, rgba(255, 255, 255, .55), transparent 100%),
+      radial-gradient(1.2px 1.2px at 78% 52%, rgba(255, 255, 255, .50), transparent 100%),
+      radial-gradient(1.5px 1.5px at 44% 76%, rgba(255, 240, 210, .50), transparent 100%),
+      radial-gradient(1.2px 1.2px at 90% 84%, rgba(255, 255, 255, .45), transparent 100%),
+      radial-gradient(1.4px 1.4px at 6% 88%, rgba(255, 235, 200, .45), transparent 100%);
+    opacity: .75;
+    animation: twinkle 6s ease-in-out infinite alternate;
+  }
+
+  @keyframes twinkle { from { opacity: .40 } to { opacity: .88 } }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ---------- 标题 ---------- */
+  .hero { text-align: center; }
+
+  .hero h1 {
+    margin: 0 0 12px;
+    padding-left: .32em;
+    font-size: clamp(24px, 3.4vw, 38px);
+    font-weight: 600;
+    letter-spacing: .32em;
+    background-image: linear-gradient(180deg, #fbeecb 0%, #d9b06a 55%, #a97f3c 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .hero .sub {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: .22em;
+    color: var(--muted);
+  }
+
+  .rule {
+    width: min(320px, 70vw);
+    height: 1px;
+    margin: 22px auto 26px;
+    background-image: linear-gradient(90deg, transparent, rgba(217, 176, 106, .55), transparent);
+  }
+
+  /* ---------- 控制区 ---------- */
+  .panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 14px 18px;
+  }
+
+  .seg {
+    display: flex;
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid rgba(217, 176, 106, .30);
+    background: rgba(20, 12, 40, .60);
+  }
+
+  .seg-btn {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    padding: 9px 20px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 14px;
+    letter-spacing: .14em;
+    color: var(--muted);
+    background: transparent;
+    transition: color .25s ease, background .25s ease, box-shadow .25s ease;
+  }
+
+  .seg-btn:hover { color: var(--gold-soft); }
+
+  .seg-btn.is-active {
+    color: #221605;
+    background-image: linear-gradient(180deg, #f4e0b0, #cfa257);
+    box-shadow: 0 4px 14px rgba(217, 176, 106, .28);
+  }
+
+  .btn-main {
+    appearance: none;
+    cursor: pointer;
+    border: 0;
+    padding: 14px 42px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .22em;
+    color: #221605;
+    background-image: linear-gradient(180deg, #f7e6bd, #cfa257 70%, #b78a42);
+    box-shadow: 0 8px 24px rgba(217, 176, 106, .26), inset 0 1px 0 rgba(255, 255, 255, .6);
+    transition: transform .18s ease, box-shadow .25s ease, filter .25s ease;
+  }
+
+  .btn-main:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(217, 176, 106, .38), inset 0 1px 0 rgba(255, 255, 255, .6); }
+  .btn-main:active:not(:disabled) { transform: translateY(1px); }
+  .btn-main:disabled { cursor: default; filter: saturate(.45) brightness(.75); box-shadow: none; }
+
+  .btn-ghost {
+    appearance: none;
+    cursor: pointer;
+    padding: 12px 24px;
+    border-radius: 999px;
+    border: 1px solid rgba(217, 176, 106, .32);
+    background: rgba(20, 12, 40, .50);
+    font: inherit;
+    font-size: 14px;
+    letter-spacing: .16em;
+    color: var(--muted);
+    transition: color .25s ease, border-color .25s ease;
+  }
+
+  .btn-ghost:hover { color: var(--gold-soft); border-color: rgba(217, 176, 106, .65); }
+
+  /* ---------- 牌阵 ---------- */
+  .tableau {
+    width: 100%;
+    min-height: 360px;
+    margin-top: 26px;
+    padding-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: clamp(14px, 2.2vw, 26px);
+  }
+
+  .hint {
+    margin: 92px 0 0;
+    font-size: 14px;
+    letter-spacing: .18em;
+    color: rgba(236, 228, 251, .40);
+  }
+
+  /* 洗牌动画 */
+  .shuffler { display: flex; flex-direction: column; align-items: center; gap: 26px; padding-top: 34px; }
+
+  .shuffle-deck { position: relative; width: 118px; aspect-ratio: 3 / 5; }
+
+  .shuffle-deck i {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(217, 176, 106, .55);
+    background-image:
+      repeating-linear-gradient(45deg, rgba(217, 176, 106, .12) 0 1px, transparent 1px 9px),
+      linear-gradient(160deg, #2a1a52, #150d2c 55%, #291849);
+    box-shadow: inset 0 0 0 4px rgba(8, 5, 15, .40);
+  }
+
+  .shuffle-deck i:nth-child(1) { animation: shufA 1s ease-in-out infinite; }
+  .shuffle-deck i:nth-child(2) { animation: shufB 1s ease-in-out infinite; }
+  .shuffle-deck i:nth-child(3) { animation: shufC 1s ease-in-out infinite; }
+
+  @keyframes shufA {
+    0%, 100% { transform: translate(-30px, 4px) rotate(-11deg); }
+    50%      { transform: translate(30px, -4px) rotate(11deg); }
+  }
+  @keyframes shufB {
+    0%, 100% { transform: translate(30px, -4px) rotate(11deg); }
+    50%      { transform: translate(-30px, 4px) rotate(-11deg); }
+  }
+  @keyframes shufC {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(0deg); }
+  }
+
+  .shuffle-text { margin: 0; font-size: 14px; letter-spacing: .34em; color: var(--muted); }
+
+  /* ---------- 卡片 ---------- */
+  .slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    animation: dealIn .55s cubic-bezier(.2, .8, .3, 1) both;
+  }
+
+  @keyframes dealIn {
+    from { opacity: 0; transform: translateY(28px) scale(.94); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .card {
+    position: relative;
+    /* --cw 是实际卡宽：被视口宽度限制后，牌面字号随之一同缩放，避免窄屏溢出 */
+    --cw: min(var(--card-w), 46vw);
+    width: var(--cw);
+    aspect-ratio: 3 / 5;
+    perspective: 1200px;
+  }
+
+  .card-inner {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition: transform .78s cubic-bezier(.35, .9, .25, 1);
+  }
+
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 11px;
+    overflow: hidden;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* 牌背 */
+  .card-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(217, 176, 106, .58);
+    background-image:
+      radial-gradient(circle at 50% 50%, rgba(217, 176, 106, .20) 0 15%, rgba(217, 176, 106, .05) 16%, transparent 42%),
+      repeating-linear-gradient(45deg, rgba(217, 176, 106, .10) 0 1px, transparent 1px 9px),
+      repeating-linear-gradient(-45deg, rgba(217, 176, 106, .10) 0 1px, transparent 1px 9px),
+      linear-gradient(160deg, #2a1a52 0%, #150d2c 52%, #291849 100%);
+    box-shadow:
+      inset 0 0 0 5px rgba(8, 5, 15, .38),
+      inset 0 0 0 6px rgba(217, 176, 106, .26),
+      0 14px 30px rgba(0, 0, 0, .48);
+  }
+
+  .back-mark {
+    font-size: calc(var(--cw) * .30);
+    line-height: 1;
+    color: rgba(244, 227, 187, .88);
+    text-shadow: 0 0 20px rgba(217, 176, 106, .60);
+  }
+
+  /* 牌面 */
+  .card-front {
+    transform: rotateY(180deg);
+    display: flex;
+    border: 1px solid var(--accent, var(--gold));
+    background-image: linear-gradient(168deg, #1b1338 0%, #100a22 58%, #1a1030 100%);
+    box-shadow:
+      inset 0 0 0 4px rgba(8, 5, 15, .55),
+      inset 0 0 0 5px rgba(255, 255, 255, .06),
+      0 14px 30px rgba(0, 0, 0, .48);
+  }
+
+  .face-inner {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--cw) * .07);
+    padding: calc(var(--cw) * .14);
+    transition: transform .55s cubic-bezier(.35, .9, .25, 1);
+  }
+
+  .card.reversed .face-inner { transform: rotate(180deg); }
+
+  .mark {
+    position: absolute;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: calc(var(--cw) * .095);
+    letter-spacing: .06em;
+    color: var(--accent, var(--gold));
+    opacity: .92;
+  }
+
+  .mark.tl { top: calc(var(--cw) * .075); left: calc(var(--cw) * .095); }
+  .mark.br { bottom: calc(var(--cw) * .075); right: calc(var(--cw) * .095); }
+
+  .sym {
+    font-size: calc(var(--cw) * .36);
+    line-height: 1;
+    filter: drop-shadow(0 5px 12px rgba(0, 0, 0, .55));
+  }
+
+  .names { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+
+  .cn {
+    font-size: calc(var(--cw) * .145);
+    letter-spacing: .14em;
+    padding-left: .14em;
+    white-space: nowrap;
+  }
+
+  .en {
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-size: calc(var(--cw) * .072);
+    letter-spacing: .06em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* 牌位标签 */
+  .slot-label {
+    font-size: 13px;
+    letter-spacing: .24em;
+    padding-left: .24em;
+    color: var(--muted);
+  }
+
+  .slot-orient {
+    font-size: 11.5px;
+    letter-spacing: .2em;
+    padding: 3px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(217, 176, 106, .40);
+    color: var(--gold-soft);
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: opacity .45s ease .32s, transform .45s ease .32s;
+  }
+
+  .slot.revealed .slot-orient { opacity: 1; transform: none; }
+  .slot.revealed .slot-orient.is-rev { border-color: rgba(180, 140, 235, .55); color: #cbb2f5; }
+
+  .foot {
+    margin-top: 34px;
+    font-size: 12px;
+    letter-spacing: .16em;
+    color: rgba(236, 228, 251, .34);
+  }
+
+  @media (max-width: 560px) {
+    body { padding: 24px 12px 34px; }
+    .btn-main { padding: 13px 30px; letter-spacing: .16em; }
+    .seg-btn { padding: 8px 15px; font-size: 13px; letter-spacing: .1em; }
+    .tableau { min-height: 300px; gap: 14px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <h1>塔 罗 抽 牌</h1>
+      <p class="sub">静心凝神 · 默念你的问题</p>
+    </header>
+    <div class="rule"></div>
+
+    <section class="panel">
+      <div class="seg" role="group" aria-label="选择抽牌数量">
+        <button class="seg-btn is-active" type="button" data-count="1">单张</button>
+        <button class="seg-btn" type="button" data-count="3">三张</button>
+        <button class="seg-btn" type="button" data-count="5">五张</button>
+      </div>
+      <button id="drawBtn" class="btn-main" type="button">开 始 抽 牌</button>
+      <button id="resetBtn" class="btn-ghost" type="button">重 置</button>
+    </section>
+
+    <main id="tableau" class="tableau" aria-live="polite">
+      <p class="hint">选择牌数，然后点击「开始抽牌」</p>
+    </main>
+
+    <p class="foot">共 78 张牌 · 仅显示正位 / 逆位，不含任何解读</p>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ======================= 牌组数据 ======================= */
+
+  var MAJOR = [
+    { n: '0',    cn: '愚者',   en: 'The Fool',          sym: '🌱' },
+    { n: 'I',    cn: '魔术师', en: 'The Magician',      sym: '✨' },
+    { n: 'II',   cn: '女祭司', en: 'The High Priestess', sym: '🌙' },
+    { n: 'III',  cn: '皇后',   en: 'The Empress',       sym: '🌾' },
+    { n: 'IV',   cn: '皇帝',   en: 'The Emperor',       sym: '👑' },
+    { n: 'V',    cn: '教皇',   en: 'The Hierophant',    sym: '🔑' },
+    { n: 'VI',   cn: '恋人',   en: 'The Lovers',        sym: '💞' },
+    { n: 'VII',  cn: '战车',   en: 'The Chariot',       sym: '🏇' },
+    { n: 'VIII', cn: '力量',   en: 'Strength',          sym: '🦁' },
+    { n: 'IX',   cn: '隐者',   en: 'The Hermit',        sym: '🏮' },
+    { n: 'X',    cn: '命运之轮', en: 'Wheel of Fortune', sym: '🎡' },
+    { n: 'XI',   cn: '正义',   en: 'Justice',           sym: '⚖️' },
+    { n: 'XII',  cn: '倒吊人', en: 'The Hanged Man',    sym: '🙃' },
+    { n: 'XIII', cn: '死神',   en: 'Death',             sym: '💀' },
+    { n: 'XIV',  cn: '节制',   en: 'Temperance',        sym: '🏺' },
+    { n: 'XV',   cn: '恶魔',   en: 'The Devil',         sym: '😈' },
+    { n: 'XVI',  cn: '塔',     en: 'The Tower',         sym: '🗼' },
+    { n: 'XVII', cn: '星星',   en: 'The Star',          sym: '⭐' },
+    { n: 'XVIII', cn: '月亮',  en: 'The Moon',          sym: '🌕' },
+    { n: 'XIX',  cn: '太阳',   en: 'The Sun',           sym: '☀️' },
+    { n: 'XX',   cn: '审判',   en: 'Judgement',         sym: '📯' },
+    { n: 'XXI',  cn: '世界',   en: 'The World',         sym: '🌍' }
+  ];
+
+  var SUITS = [
+    { key: 'wands',     cn: '权杖', en: 'Wands',     sym: '🔥', accent: '#e0954f' },
+    { key: 'cups',      cn: '圣杯', en: 'Cups',      sym: '🏆', accent: '#6aa9e6' },
+    { key: 'swords',    cn: '宝剑', en: 'Swords',    sym: '⚔️', accent: '#aabdd2' },
+    /* 星币用五芒星符 U+26E7：🪙 在部分系统缺字形会显示成豆腐块 */
+    { key: 'pentacles', cn: '星币', en: 'Pentacles', sym: '⛧', accent: '#d9b06a' }
+  ];
+
+  var NUM_MARK = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+  var NUM_CN   = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+  var NUM_EN   = ['', 'Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+
+  var COURT = [
+    { cn: '侍从', en: 'Page',   mark: '侍' },
+    { cn: '骑士', en: 'Knight', mark: '骑' },
+    { cn: '王后', en: 'Queen',  mark: '后' },
+    { cn: '国王', en: 'King',   mark: '王' }
+  ];
+
+  function buildDeck() {
+    var deck = [];
+
+    MAJOR.forEach(function (m, i) {
+      deck.push({
+        id: 'major-' + i,
+        cn: m.cn, en: m.en, sym: m.sym, mark: m.n,
+        accent: '#d9b06a'
+      });
+    });
+
+    SUITS.forEach(function (s) {
+      for (var r = 1; r <= 10; r++) {
+        deck.push({
+          id: s.key + '-' + r,
+          cn: s.cn + NUM_CN[r],
+          en: NUM_EN[r] + ' of ' + s.en,
+          sym: s.sym, mark: NUM_MARK[r], accent: s.accent
+        });
+      }
+      COURT.forEach(function (c) {
+        deck.push({
+          id: s.key + '-' + c.en.toLowerCase(),
+          cn: s.cn + c.cn,
+          en: c.en + ' of ' + s.en,
+          sym: s.sym, mark: c.mark, accent: s.accent
+        });
+      });
+    });
+
+    return deck;
+  }
+
+  /* ======================= 牌阵配置 ======================= */
+
+  var SPREAD_LABELS = {
+    1: ['今日之牌'],
+    3: ['过去', '现在', '未来'],
+    5: ['现况', '阻碍', '建议', '潜在', '结果']
+  };
+
+  var CARD_W = { 1: '200px', 3: '168px', 5: '148px' };
+
+  var DECK = buildDeck();
+
+  /* ======================= 状态与元素 ======================= */
+
+  var tableau   = document.getElementById('tableau');
+  var drawBtn   = document.getElementById('drawBtn');
+  var resetBtn  = document.getElementById('resetBtn');
+  var segBtns   = Array.prototype.slice.call(document.querySelectorAll('.seg-btn'));
+
+  var state = { count: 1, busy: false };
+  var timers = [];
+
+  function later(fn, ms) { timers.push(window.setTimeout(fn, ms)); }
+
+  function clearTimers() {
+    timers.forEach(function (t) { window.clearTimeout(t); });
+    timers = [];
+  }
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function setBusy(on) {
+    state.busy = on;
+    drawBtn.disabled = on;
+    drawBtn.textContent = on ? '洗 牌 中 …' : '开 始 抽 牌';
+  }
+
+  /* ======================= 渲染 ======================= */
+
+  function shuffleScene() {
+    var wrap = document.createElement('div');
+    wrap.className = 'shuffler';
+    wrap.innerHTML =
+      '<div class="shuffle-deck"><i></i><i></i><i></i></div>' +
+      '<p class="shuffle-text">洗 牌 中</p>';
+    return wrap;
+  }
+
+  function buildSlot(pick, label, index) {
+    var slot = document.createElement('div');
+    slot.className = 'slot';
+    slot.style.animationDelay = (index * 90) + 'ms';
+
+    var card = pick.card;
+
+    slot.innerHTML =
+      '<div class="card" style="--accent:' + card.accent + '">' +
+        '<div class="card-inner">' +
+          '<div class="card-face card-back"><span class="back-mark">☾</span></div>' +
+          '<div class="card-face card-front">' +
+            '<div class="face-inner">' +
+              '<span class="mark tl">' + card.mark + '</span>' +
+              '<span class="sym">' + card.sym + '</span>' +
+              '<span class="names">' +
+                '<span class="cn">' + card.cn + '</span>' +
+                '<span class="en">' + card.en + '</span>' +
+              '</span>' +
+              '<span class="mark br">' + card.mark + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="slot-label">' + label + '</div>' +
+      '<div class="slot-orient' + (pick.reversed ? ' is-rev' : '') + '">' +
+        (pick.reversed ? '逆位' : '正位') +
+      '</div>';
+
+    return slot;
+  }
+
+  function showHint(text) {
+    tableau.innerHTML = '<p class="hint">' + text + '</p>';
+  }
+
+  function deal() {
+    var n = state.count;
+
+    var picks = shuffle(DECK.slice()).slice(0, n).map(function (card) {
+      return { card: card, reversed: Math.random() < 0.5 };
+    });
+
+    tableau.innerHTML = '';
+    tableau.style.setProperty('--card-w', CARD_W[n]);
+
+    var labels = SPREAD_LABELS[n];
+
+    picks.forEach(function (pick, i) {
+      var slot = buildSlot(pick, labels[i], i);
+      tableau.appendChild(slot);
+
+      later(function () {
+        slot.classList.add('revealed');
+        var card = slot.querySelector('.card');
+        card.classList.add('flipped');
+        if (pick.reversed) card.classList.add('reversed');
+      }, 640 + i * 340);
+    });
+
+    later(function () { setBusy(false); }, 640 + (n - 1) * 340 + 800);
+  }
+
+  /* ======================= 交互 ======================= */
+
+  function draw() {
+    if (state.busy) return;
+    clearTimers();
+    setBusy(true);
+    tableau.innerHTML = '';
+    tableau.appendChild(shuffleScene());
+    later(deal, 980);
+  }
+
+  function reset() {
+    clearTimers();
+    setBusy(false);
+    showHint('选择牌数，然后点击「开始抽牌」');
+  }
+
+  drawBtn.addEventListener('click', draw);
+
+  resetBtn.addEventListener('click', reset);
+
+  segBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (state.busy) return;
+      segBtns.forEach(function (b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      state.count = parseInt(btn.getAttribute('data-count'), 10) || 1;
+      reset();
+    });
+  });
+})();
+</script>
+</body>
+</html>
